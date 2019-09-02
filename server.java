@@ -88,6 +88,7 @@ class TCPServer {
            forwardMessage = clientMessage.toUpperCase() + '\n'; 
 
            outToClient.writeBytes(forwardMessage); 
+	     
         } 
     } 
 } 
