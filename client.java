@@ -11,6 +11,9 @@ class TCPClient {
         return username;
     }
     
+    public InetAddress get_serverAddress(){
+        return serverAddress;
+    }
     public void registerSocketActivity(DataOutputStream sendSocketStream1, boolean if1receive, BufferedReader input_server_1, DataOutputStream sendSocketStream2, boolean if2receive, BufferedReader input_server_2, BufferedReader input_from_user){
         boolean sender_registered = registerSocket(username, if1receive, sendSocketStream1, input_server_1);
         boolean receiver_registered = registerSocket(username, if2receive, sendSocketStream2,input_server_2);
@@ -43,7 +46,13 @@ class TCPClient {
     public boolean registerSocket(String username, boolean if_to_receive, DataOutputStream out_to_server, BufferedReader input_server){
        send_register_message(username, if_to_receive, out_to_server);
        String server_input = "";
-       server_input = input_server.readLine();
+       while(input_server.ready()){
+        String temp = input_server.readLine();
+        if(temp.length() == 0)
+            continue;
+        else
+            server_input = temp;
+       }
        return (check_if_registered(server_input));
     }
 
@@ -132,20 +141,62 @@ class SocketThread implements Runnable extends TCPClient {
         else
             read_inp_from_server();      
     }
+    public void send_message(String username, long content_length, String message){
+        String message_to_send = "SEND " + username + "\nContent-length : " + Long.toString(content_length) + "\n";
+        message_to_send += "\nmessage" + "\n";
+        this.output_to_server.writeBytes(message_to_send + '\n');
+    }
+
+    public void respond_to_server_response(String message, String username){
+        String[] words = message.split(" ");
+        if(words[0].equals("SENT"))
+            System.out.println("Message Successfully sent to "+ username);
+        else{
+            if(words[1].equals("102"))
+                System.out.println("The message was unable to send because the recipient is not registered on network.");
+            else{
+                System.out.println("Aww! Snap. Connection broke down. Re-establishing the connection!");
+                Socket clientSocketSend_new = new Socket(get_serverAddress(),6789);
+                DataOutputStream outpToServer = new DataOutputStream(clientSocketSend_new.getOutputStream());
+                BufferedReader inpServer = new BufferedReader(new InputStreamReader(clientSocketSend_new.getInputStream()))
+                boolean is_success = registerSocket(get_username(),false,outpToServer,inpServer);
+                this.connectionSocket = clientSocketSend_new;
+                this.input_from_server = inpServer;
+                this.output = outpToServer;
+                this.output_to_server = this.output;
+                System.out.println("Connection Re-established");
+            }
+        }
+    }
     public void read_inp_from_user(){
         while(true) { 
             try {
-                if(if_receiving){
-                    
+                String recipient_username = "";
+                boolean message_started = false;
+                long content_length = 0;
+                while(input.ready()){
+                    String message = this.input.readLine();
+                    if(message == null)
+                        System.out.println("Invalid Command");
+                    int counter = 0;
+                    while(message.charAt(counter) != ' '){
+                        if(message.charAt(counter) != '@')
+                            recipient_username += Character.toString(message.charAt(counter));
+                        counter++; 
+                    }
+                    String message_content = message.substring(counter+1,message.length());
+                    long message_content_length = message_content.length();
+                    send_message(recipient_username, message_content_length, message_content);       
+                    String server_response = "";
+                    String temp = "";
+                    while((temp = this.input_from_server.readLine()) != null){
+                        if(temp.length() ==0)
+                            continue;
+                        else
+                            server_response = temp;
+                    }
+                    respond_to_server_response(server_response, recipient_username);
                 }
-                else{
-                    server_input = this.input_from_server.readLine();
-
-                    user_input = this.input.readLine();
-                    
-                }
-                capitalizedSentence = clientSentence.toUpperCase() + '\n'; 
-                outToClient.writeBytes(capitalizedSentence); 
             } 
             catch(Exception e) {
                 try {
@@ -156,11 +207,48 @@ class SocketThread implements Runnable extends TCPClient {
             }
         }
     }
+
+    public void send_received_ack(String sender_username){
+        String received_ack = "RECEIVED "+ sender_username+"\n";
+        this.output_to_server.writeBytes(received_ack + '\n');
+    }
+    public void send_error_ack(){
+        String error_ack = "ERROR 103 Header Incomplete"+"\n";
+        this.output_to_server.writeBytes(error_ack + '\n');
+    }
     public void read_inp_from_server(){
         while(true) { 
             try {
-                String message = this.
-            } 
+                String sender_username = "";
+                boolean message_started = false;
+                long content_length = 0;
+                while(input_from_server.ready()){
+                    String message = this.input_from_server.readLine();
+                    if(message == null)
+                        break;
+                    if(message.length() == 0){
+                        if(message_started == true)
+                            continue;
+                        message_started = true;
+                        continue;
+                    }
+                    if(!message_started){
+                        String[] words = message.split(" ");
+                        if(words[0].equals("FORWARD"))
+                            sender_username = words[1];
+                        if(words[0].equals("Content-length"))
+                            content_length = Long.parseLong(words[2]);
+                    }
+                    else
+                        if((long)message.length() == content_length){
+                            System.out.println("Message from "+ sender_username);
+                            System.out.println(message);
+                            send_received_ack(sender_username);
+                        }
+                        else
+                            send_error_ack();
+                } 
+            }
             catch(Exception e) {
                 try {
                   connectionSocket.close();
