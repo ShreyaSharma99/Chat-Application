@@ -58,8 +58,20 @@ class TCPServer {
           break; //breaking because its one to one map
       }
     }
-  return sender;    
-}
+    return sender;    
+  }
+
+  public String findSenderR(Socket connectionSocket){
+    String sender="";
+    for(Map.Entry<String,SocketConnection> entry: recSocketMap.entrySet()){
+      System.out.println(entry.getValue().getUsername());
+      if(entry.getValue().getSocket()==connectionSocket){
+          sender = (String)entry.getKey();
+          break; //breaking because its one to one map
+      }
+    }
+    return sender;    
+  }
 
   public String createForwardMessage(String sender,String fwdMessage){
     String answer = "FORWARD "+ sender + "\n" + "Content-length: "+(fwdMessage.length())+"\n"+"\n"+fwdMessage;
@@ -163,6 +175,13 @@ class TCPServer {
           break;
         }
 
+        else if(word[0].equals("DEREGISTER")){
+          username = word[1];
+          receiver = "deregister";
+          while(inFromClient.ready())
+            clientMessage = inFromClient.readLine();
+          break;
+        }
         else if(word[0].equals("ERROR")){
           if(word[1].equals("103")){
             errorMessage = "Header incomplete";
@@ -175,7 +194,7 @@ class TCPServer {
       }
     }catch(Exception e){
       while(inFromClient.ready())
-            clientMessage = inFromClient.readLine();
+        clientMessage = inFromClient.readLine();
       serverReply = "ERROR 103 Header incomplete \n\n";
     }
     String[] answer = new String[5];
@@ -253,6 +272,25 @@ class SocketThread extends TCPServer implements Runnable {
         this.outToClient1.writeBytes(serverReply);
       } 
       //check when server reply is an error message
+      if(receiver.equals("deregister")){
+        if(findSender(connectionSocket).length()!=0){
+          this.outToClient1.writeBytes("SUCCESS \n");
+          sendSocketMap.remove(username);
+          connectionSocket.close();
+          break;
+        }
+        else if(findSenderR(connectionSocket).length()!=0){
+          this.outToClient1.writeBytes("SUCCESS \n");
+          recSocketMap.remove(username);
+          connectionSocket.close();
+          break;
+        }
+        else{
+          this.outToClient1.writeBytes("FAIL: User was not registered  \n");
+          break;
+        }
+      }
+
       if(receiver.equals("receive")){
         break;
       }
