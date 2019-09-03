@@ -1,13 +1,12 @@
 import java.io.*; 
 import java.net.*; 
-
-
-public static HashMap<String, Socket> socketMap = new HashMap<>(); 
-public static HashMap<String, Integer> keyMap = new HashMap<>(); 
-
+ 
 class TCPServer { 
 
-  public String[] readMessage(String clientMessage, BufferedReader inFromClient, Socket connectionSocket){
+  public static HashMap<String, Socket> socketMap = new HashMap<>(); 
+  public static HashMap<String, Integer> keyMap = new HashMap<>();
+
+  public String[] readMessage(BufferedReader inFromClient, Socket connectionSocket){
 
     String serverReply = "";
     String fwdMessage = "";
@@ -61,7 +60,7 @@ class TCPServer {
   
           username = word[1];
           if(!socketMap.containsKey(username)){
-            serverReply = "ERROR 102 Unable to send\n";
+            serverReply = "ERROR 102 Unable to send\n\n";
             break;
           }
 
@@ -69,7 +68,7 @@ class TCPServer {
           String[] word1 = clientMessage.split("\\s+");
 
           if(word1[0].equals("Content-length:")){
-            int mssg_len = Integer.parseInt(word[1]);
+            int mssg_len = Integer.parseInt(word1[1]);
             if(inFromClient.readLine().length() == 0){
               String fwdMessage = inFromClient.readLine();
               if(fwdMessage.length()!=mssg_len){
@@ -105,8 +104,8 @@ class TCPServer {
 
   public boolean checkUserName (String un ){
     int len = un.length();
-    if(un.charAt(0) != '@') return false;
-    for(int i=1; i<len; i++){
+    //if(un.charAt(0) != '@') return false;
+    for(int i=0; i<len; i++){
       if!((((int)un.charAt(i)>47)&&((int)un.charAt(i)<58)) || (((int)un.charAt(i)>64)&&((int)un.charAt(i)<91)) || (((int)un.charAt(i)>96)&&((int)un.charAt(i)<123)))
         return false;
     }
@@ -133,8 +132,7 @@ class TCPServer {
     }
 } 
  
-class SocketThread implements Runnable extends TCPServer {
-  String clientMessage; 
+class SocketThread extends TCPServer implements Runnable {
   String serverReply;
   String fwdMessage; 
   String errorMessage;
@@ -151,23 +149,20 @@ class SocketThread implements Runnable extends TCPServer {
 
   public void run() {
     while(true) { 
-	   try {
-      // clientMessage = inFromClient.readLine(); 
-      // System.out.println(clientMessage);
-
-      String[4] str = readMessage(clientMessage, inFromClient, connectionSocket);
+     try {
+      String[4] str = readMessage(inFromClient, connectionSocket);
       serverReply = str[0];
       fwdMessage = str[1];
       errorMessage = str[2];
       username = str[3];
       outToClient.writeBytes(serverReply); 
 
-	   }catch(Exception e) {
-		    try {
-			   connectionSocket.close();
-		    } catch(Exception ee) { }
-		    break;
-	   }
+     }catch(Exception e) {
+        try {
+         connectionSocket.close();
+        } catch(Exception ee) { }
+        break;
+     }
     } 
   }
 
