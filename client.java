@@ -14,7 +14,7 @@ class TCPClient {
     public InetAddress get_serverAddress(){
         return serverAddress;
     }
-    public void registerSocketActivity(DataOutputStream sendSocketStream1, boolean if1receive, BufferedReader input_server_1, DataOutputStream sendSocketStream2, boolean if2receive, BufferedReader input_server_2, BufferedReader input_from_user){
+    public void registerSocketActivity(DataOutputStream sendSocketStream1, boolean if1receive, BufferedReader input_server_1, DataOutputStream sendSocketStream2, boolean if2receive, BufferedReader input_server_2, BufferedReader input_from_user) throws IOException{
         boolean sender_registered = registerSocket(username, if1receive, sendSocketStream1, input_server_1);
         boolean receiver_registered = registerSocket(username, if2receive, sendSocketStream2,input_server_2);
         if(sender_registered && receiver_registered)
@@ -34,7 +34,7 @@ class TCPClient {
         return;
     }
 
-    public void send_register_message(String username, boolean if_to_receive, DataOutputStream out_to_server){
+    public void send_register_message(String username, boolean if_to_receive, DataOutputStream out_to_server) throws IOException{
         String message = "";
         if(!if_to_receive)
             message = "REGISTER TOSEND "+ username + "\n";
@@ -43,7 +43,7 @@ class TCPClient {
         out_to_server.writeBytes(message + '\n');
         return;
     }
-    public boolean registerSocket(String username, boolean if_to_receive, DataOutputStream out_to_server, BufferedReader input_server){
+    public boolean registerSocket(String username, boolean if_to_receive, DataOutputStream out_to_server, BufferedReader input_server) throws IOException{
        send_register_message(username, if_to_receive, out_to_server);
        String server_input = "";
        while(input_server.ready()){
@@ -56,7 +56,7 @@ class TCPClient {
        return (check_if_registered(server_input));
     }
 
-    public boolean check_if_registered(String message){
+    public boolean check_if_registered(String message) throws IOException{
         BufferedReader parser = new BufferedReader(new StringReader(message));
         String sCurrentLine = parser.readLine();
         String[] words = sCurrentLine.split(" ");
@@ -70,7 +70,7 @@ class TCPClient {
             return true;
      }
 
-    public static void main(String argv[]) throws Exception 
+    public void main(String argv[]) throws Exception 
     { 
         String sentence, modifiedSentence;
         BufferedReader inFromUser = new BufferedReader(new InputStreamReader(System.in)); 
@@ -91,7 +91,7 @@ class TCPClient {
 
         //Input and Output for Socket responsible for sending messages
         DataOutputStream outToServer = new DataOutputStream(clientSocketSend.getOutputStream());
-        BufferedReader inServer = new BufferedReader(new InputStreamReader(clientSocketSend.getInputStream()))
+        BufferedReader inServer = new BufferedReader(new InputStreamReader(clientSocketSend.getInputStream()));
 
         //Input and Output for Socket responsible for receiving messages
         BufferedReader inFromServer = new BufferedReader(new InputStreamReader(clientSocketReceive.getInputStream())); 
@@ -108,7 +108,7 @@ class TCPClient {
     } 
 } 
 
-class SocketThread implements Runnable extends TCPClient { 
+class SocketThread extends TCPClient implements Runnable { 
      Socket connectionSocket;
      BufferedReader input;
      BufferedReader input_from_server;
@@ -116,7 +116,7 @@ class SocketThread implements Runnable extends TCPClient {
      DataOutputStream output_to_server;
      boolean if_receiving;
 
-     SocketThread (Socket connectionSocket, BufferedReader inFromClient, DataOutputStream outToClient, BufferedReader inputServer) {
+     SocketThread (Socket connectionSocket, BufferedReader inFromClient, DataOutputStream outToServer, BufferedReader inputServer) {
         this.connectionSocket = connectionSocket;
         this.input = inFromClient;
         this.output = outToServer;
@@ -125,7 +125,7 @@ class SocketThread implements Runnable extends TCPClient {
         if_receiving = false;
      } 
 
-     SocketThread (Socket connectionSocket, BufferedReader inFromClient, DataOutputStream outToClient, DataOutputStream outputServer) {
+     SocketThread (Socket connectionSocket, BufferedReader inFromServer, DataOutputStream outToClient, DataOutputStream outputServer) {
         this.connectionSocket = connectionSocket;
         this.input = inFromServer;
         this.output = outToClient;
@@ -141,13 +141,13 @@ class SocketThread implements Runnable extends TCPClient {
         else
             read_inp_from_server();      
     }
-    public void send_message(String username, long content_length, String message){
+    public void send_message(String username, long content_length, String message) throws IOException{
         String message_to_send = "SEND " + username + "\nContent-length : " + Long.toString(content_length) + "\n";
         message_to_send += "\nmessage" + "\n";
         this.output_to_server.writeBytes(message_to_send + '\n');
     }
 
-    public void respond_to_server_response(String message, String username){
+    public void respond_to_server_response(String message, String username) throws IOException{
         String[] words = message.split(" ");
         if(words[0].equals("SENT"))
             System.out.println("Message Successfully sent to "+ username);
@@ -158,7 +158,7 @@ class SocketThread implements Runnable extends TCPClient {
                 System.out.println("Aww! Snap. Connection broke down. Re-establishing the connection!");
                 Socket clientSocketSend_new = new Socket(get_serverAddress(),6789);
                 DataOutputStream outpToServer = new DataOutputStream(clientSocketSend_new.getOutputStream());
-                BufferedReader inpServer = new BufferedReader(new InputStreamReader(clientSocketSend_new.getInputStream()))
+                BufferedReader inpServer = new BufferedReader(new InputStreamReader(clientSocketSend_new.getInputStream()));
                 boolean is_success = registerSocket(get_username(),false,outpToServer,inpServer);
                 this.connectionSocket = clientSocketSend_new;
                 this.input_from_server = inpServer;
@@ -208,11 +208,11 @@ class SocketThread implements Runnable extends TCPClient {
         }
     }
 
-    public void send_received_ack(String sender_username){
+    public void send_received_ack(String sender_username) throws IOException{
         String received_ack = "RECEIVED "+ sender_username+"\n";
         this.output_to_server.writeBytes(received_ack + '\n');
     }
-    public void send_error_ack(){
+    public void send_error_ack() throws IOException{
         String error_ack = "ERROR 103 Header Incomplete"+"\n";
         this.output_to_server.writeBytes(error_ack + '\n');
     }
