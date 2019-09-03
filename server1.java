@@ -1,7 +1,15 @@
 import java.io.*; 
 import java.net.*; 
+import java.util.*;
  
-class SocketConnection{ 
+
+class TCPServer { 
+
+  public static HashMap<String, SocketConnection> sendSocketMap = new HashMap<>(); 
+  public static HashMap<String, SocketConnection> recSocketMap = new HashMap<>(); 
+  public static HashMap<String, Integer> keyMap = new HashMap<>();
+
+  class SocketConnection{ 
     // Instance Variables 
     String username; 
     Socket socket;
@@ -41,30 +49,24 @@ class SocketConnection{
     }
 } 
 
-
-class TCPServer { 
-
-  public static HashMap<String, SocketConnection> sendSocketMap = new HashMap<>(); 
-  public static HashMap<String, SocketConnection> recSocketMap = new HashMap<>(); 
-  public static HashMap<String, Integer> keyMap = new HashMap<>();
-
-  public String findSender(connectionSocket){
-    String sender;
-    for(Map.Entry entry: sendSocketMap.entrySet()){
-      if(entry.getSocket()==connectionSocket){
-          sender = entry.getKey();
+  public String findSender(Socket connectionSocket){
+    String sender="";
+    for(Map.Entry<String,SocketConnection> entry: sendSocketMap.entrySet()){
+      System.out.println(entry.getValue().getUsername());
+      if(entry.getValue().getSocket()==connectionSocket){
+          sender = (String)entry.getKey();
           break; //breaking because its one to one map
       }
     }
   return sender;    
 }
 
-  public String createForwardMessage(sender, fwdMessage){
+  public String createForwardMessage(String sender,String fwdMessage){
     String answer = "FORWARD "+ sender + "\n" + "Content-length: "+(fwdMessage.length())+"\n"+"\n"+fwdMessage;
     return answer;
   }
 
-  public String[] readMessage(BufferedReader inFromClient, Socket connectionSocket, DataOutputStream outToClient){
+  public String[] readMessage(BufferedReader inFromClient, Socket connectionSocket, DataOutputStream outToClient) throws IOException{
 
     String clientMessage = "";
     String serverReply = "";
@@ -72,10 +74,10 @@ class TCPServer {
     String errorMessage = "";
     String username = "";
     String receiver = "";
+    try{
     while(inFromClient.ready()){
       clientMessage = inFromClient.readLine();
       String[] word = clientMessage.split("\\s+");
-      try{
         //when input message was for registration
         if(word[0].equals("REGISTER")){
           if(word[1].equals("TOSEND")){
@@ -144,7 +146,7 @@ class TCPServer {
           if(word1[0].equals("Content-length:")){
             int mssg_len = Integer.parseInt(word1[1]);
             if(inFromClient.readLine().length() == 0){
-              String fwdMessage = inFromClient.readLine();
+              fwdMessage = inFromClient.readLine();
               if(fwdMessage.length()!=mssg_len){
                 serverReply = "ERROR - Content length and message length mismatch !";
                 while(inFromClient.ready())
@@ -170,13 +172,13 @@ class TCPServer {
           }
         }
 
-      }catch(Exception e){
-        while(inFromClient.ready())
-              clientMessage = inFromClient.readLine();
-        serverReply = "ERROR 103 Header incomplete \n\n";
       }
+    }catch(Exception e){
+      while(inFromClient.ready())
+            clientMessage = inFromClient.readLine();
+      serverReply = "ERROR 103 Header incomplete \n\n";
     }
-    String[5] answer;
+    String[] answer = new String[5];
     answer[0] = serverReply;
     answer[1] = fwdMessage;
     answer[2] = errorMessage;
@@ -189,7 +191,7 @@ class TCPServer {
     int len = un.length();
     //if(un.charAt(0) != '@') return false;
     for(int i=0; i<len; i++){
-      if!((((int)un.charAt(i)>47)&&((int)un.charAt(i)<58)) || (((int)un.charAt(i)>64)&&((int)un.charAt(i)<91)) || (((int)un.charAt(i)>96)&&((int)un.charAt(i)<123)))
+      if(!((((int)(un.charAt(i))>47)&&((int)(un.charAt(i))<58)) || (((int)(un.charAt(i))>64)&&((int)(un.charAt(i))<91)) || (((int)(un.charAt(i))>96)&&((int)(un.charAt(i))<123))))
         return false;
     }
     return true;
@@ -239,7 +241,8 @@ class SocketThread extends TCPServer implements Runnable {
      try {
 
 
-      String[5] str = readMessage(inFromClient1, connectionSocket, outToClient1);
+      String[] str = new String[5];
+      str = readMessage(inFromClient1, connectionSocket, outToClient1);
       serverReply = str[0];
       fwdMessage = str[1];
       errorMessage = str[2];
@@ -251,7 +254,7 @@ class SocketThread extends TCPServer implements Runnable {
       } 
       //check when server reply is an error message
       if(receiver.equals("receive")){
-        this.close();
+        break;
       }
 
       boolean is_error_possible = true;
@@ -265,7 +268,8 @@ class SocketThread extends TCPServer implements Runnable {
         // DataOutputStream outToClient2 = new DataOutputStream(forwardSocket.getOutputStream());
         // outToClient2.writeBytes(fwdMessage);
         // forwardSocket.getInFromClient() = new BufferedReader(new InputStreamReader(forwardSocket.getSocket().getInputStream()));
-        String[5] reply = readMessage(forwardSocket.getInFromClient(), forwardSocket.getSocket(), forwardSocket.getOutToClient()); 
+        String[] reply = new String[5];
+        reply = readMessage(forwardSocket.getInFromClient(), forwardSocket.getSocket(), forwardSocket.getOutToClient()); 
         if(reply[2].length()==0) is_error_possible = false;
         //check when server reply is an error message
       }
