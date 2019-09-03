@@ -11,6 +11,8 @@ class TCPServer {
 
     String serverReply = "";
     String fwdMessage = "";
+    String errorMessage = "";
+    String username = "";
     while(inFromClient.ready()){
       clientMessage = inFromClient.readLine();
       String[] word = clientMessage.split("\\s+");
@@ -18,36 +20,38 @@ class TCPServer {
         //when input message was for registration
         if(word[0].equals("REGISTER")){
           if(word[1].equals("TOSEND")){
-            if(checkUserName(word[2])){
-              socketMap.put(word[2],connectionSocket);
+            username = word[2];
+            if(checkUserName(username)){
+              socketMap.put(username,connectionSocket);
               clientMessage = inFromClient.readLine();
               if(clientMessage != null){
                 clientMessage = inFromClient.readLine();
                 if(clientMessage == null){
-                  serverReply = "REGISTERED TOSEND "+word[2]+"\n\n";
+                  serverReply = "REGISTERED TOSEND "+username+"\n\n";
                   break;
                 }
               }
             }
             else{
-              serverReply = "ERROR 100 Malformed "+word[2]+"\n\n";
+              serverReply = "ERROR 100 Malformed "+username+"\n\n";
               break;
             }
           }
           else if(word[1].equals("TORECV")){
-            if(checkUserName(word[2])){
-              socketMap.put(word[2],connectionSocket);
+            username = word[2];
+            if(checkUserName(username)){
+              socketMap.put(username,connectionSocket);
               clientMessage = inFromClient.readLine();
               if(clientMessage != null){
                 clientMessage = inFromClient.readLine();
                 if(clientMessage == null){
-                  serverReply = "REGISTERED TORECV "+word[2]+"\n\n";
+                  serverReply = "REGISTERED TORECV "+username+"\n\n";
                   break;
                 }
               }
             }
             else{
-              serverReply = "ERROR 100 Malformed "+word[2]+"\n\n";
+              serverReply = "ERROR 100 Malformed "+username+"\n\n";
               break;
             }
           }
@@ -55,7 +59,7 @@ class TCPServer {
 
         else if(word[0].equals("SEND")){
   
-          String username = word[1];
+          username = word[1];
           if(!socketMap.containsKey(username)){
             serverReply = "ERROR 102 Unable to send\n";
             break;
@@ -74,16 +78,28 @@ class TCPServer {
               }
             } 
           }
+        }
 
+        else if(word[0].equals("RECEIVED")){
+          break;
+        }
+
+        else if(word[0].equals("ERROR")){
+          if(word[1].equals("103")){
+            errorMessage = "Header incomplete";
+            break;
+          }
         }
 
       }catch(Exception e){
 
       }
     }
-    String[2] answer;
+    String[4] answer;
     answer[0] = serverReply;
     answer[1] = fwdMessage;
+    answer[2] = errorMessage;
+    answer[3] = username;
     return answer; 
   } 
 
@@ -111,7 +127,7 @@ class TCPServer {
         SocketThread socketThread = new SocketThread(connectionSocket, inFromClient, outToClient);
 
         Thread thread = new Thread(socketThread);
-        thread.start();  
+        thread.run();  
 
       }
     }
@@ -119,7 +135,10 @@ class TCPServer {
  
 class SocketThread implements Runnable extends TCPServer {
   String clientMessage; 
-  String serverReply; 
+  String serverReply;
+  String fwdMessage; 
+  String errorMessage;
+  String username;
   Socket connectionSocket;
   BufferedReader inFromClient;
   DataOutputStream outToClient;
@@ -134,9 +153,13 @@ class SocketThread implements Runnable extends TCPServer {
     while(true) { 
 	   try {
       // clientMessage = inFromClient.readLine(); 
-      System.out.println(clientMessage);
+      // System.out.println(clientMessage);
 
-      serverReply = readMessage(clientMessage, inFromClient);
+      String[4] str = readMessage(clientMessage, inFromClient, connectionSocket);
+      serverReply = str[0];
+      fwdMessage = str[1];
+      errorMessage = str[2];
+      username = str[3];
       outToClient.writeBytes(serverReply); 
 
 	   }catch(Exception e) {
