@@ -2,11 +2,13 @@ import java.io.*;
 import java.net.*; 
 import java.util.*;
 import java.lang.*;
+import java.security.*;
 class TCPClient { 
 
     static String username;
     static InetAddress serverAddress;
     static KeyPair key;
+    static MessageDigest md;
 
     public String get_username(){
         return username;
@@ -19,6 +21,10 @@ class TCPClient {
 
     public KeyPair get_key(){
         return key;
+    }
+
+    public MessageDigest get_digest(){
+        return md;
     }
 
     public void registerSocketActivity(DataOutputStream sendSocketStream1, boolean if1receive, BufferedReader input_server_1, DataOutputStream sendSocketStream2, boolean if2receive, BufferedReader input_server_2, BufferedReader input_from_user) throws IOException{
@@ -96,6 +102,7 @@ class TCPClient {
 
         Socket clientSocketReceivetSend = new Socket(serverAddress, 6789);
         key = generateKeyPair();
+        md = MessageDigest.getInstance("SHA-256");
         Socket clientSocketReceive = new Socket(serverAddress, 6789);  
 
         //------------------------**USER DETAILS RETRIEVED**-----------------------------//
@@ -155,8 +162,12 @@ class SocketThread extends TCPClient implements Runnable {
         byte[] recipient_key = java.util.Base64.getDecoder().decode(key);
         byte[] encrypted_data = encrypt(recipient_key, message.getBytes());
         String message_encrypted = java.util.Base64.getEncoder().encodeToString(encrypted_data);
+        byte[] hash = get_digest().digest(encrypted_data);
+        byte[] private_key = get_key().getPrivate().getEncoded();
+        byte[] encrypt_hash = encrypt(private_key,hash);
+        String hash_base64 = java.util.Base64.getEncoder().encodeToString(encrypt_hash);
         String message_to_send = "SEND " + username + "\nContent-length: " + Long.toString(content_length) + "\n\n";
-        message_to_send += message_encrypted + "\n";
+        message_to_send += message_encrypted + "\n" + hash_base64 +"\n";
         this.output_to_server.writeBytes(message_to_send + '\n');
     }
 
@@ -247,6 +258,14 @@ class SocketThread extends TCPClient implements Runnable {
         String error_ack = "ERROR 103 Header Incomplete"+"\n";
         this.output_to_server.writeBytes(error_ack + '\n');
     }
+
+    public byte[] get_key_from_server(String username) throws IOException{
+        String message_to_send = "FETCHKEY " + username;
+        this.output_to_server.writeBytes(message_to_send);
+        String response = this.input_from_server.readLine();
+        byte[] pub_key = java.util.Base64.getDecoded().decode(response);
+        return pub_key;
+    }
     public void read_inp_from_server(){
         while(true) { 
             try {
@@ -271,11 +290,16 @@ class SocketThread extends TCPClient implements Runnable {
                             content_length = Long.parseLong(words[1]);
                     }
                     else{
+                        String hash = this.input_from_server.readLine();
                         byte[] private_key = get_key().getPrivate().getEncoded();
                         byte[] decoded_data = java.util.Base64.getDecoder().decode(message);
-                        String decrypted_data = decrypt(private_key, decoded_data);
+                        byte[] hash1 = java.util.Base64.getDecoder().decode(hash);
+                        byte[] hash_digested = get_digest().digest(decoded_data);
+                        byte[] public_key_sender = get_key_from_server(sender_username);
+                        byte[] decrypted_hash = decrypt(public_key_sender,hash1);
+                        String decrypted_data = String(decrypt(private_key, decoded_data));
                         message = decrypted_data;
-                        if((long)message.length() == content_length){
+                        if(((long)message.length() == content_length) && (decrypted_hash == hash_digested )){
                             System.out.println("Message from "+ sender_username);
                             System.out.println(message);
                             send_received_ack(sender_username);
@@ -295,4 +319,3 @@ class SocketThread extends TCPClient implements Runnable {
         }
     }
 }
-
