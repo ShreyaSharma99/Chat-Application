@@ -6,6 +6,7 @@ class TCPClient {
 
     static String username;
     static InetAddress serverAddress;
+    static KeyPair key;
 
     public String get_username(){
         return username;
@@ -14,6 +15,12 @@ class TCPClient {
     public InetAddress get_serverAddress(){
         return serverAddress;
     }
+
+
+    public KeyPair get_key(){
+        return key;
+    }
+
     public void registerSocketActivity(DataOutputStream sendSocketStream1, boolean if1receive, BufferedReader input_server_1, DataOutputStream sendSocketStream2, boolean if2receive, BufferedReader input_server_2, BufferedReader input_from_user) throws IOException{
         boolean sender_registered = registerSocket(username, if1receive, sendSocketStream1, input_server_1);
         boolean receiver_registered = registerSocket(username, if2receive, sendSocketStream2,input_server_2);
@@ -36,24 +43,14 @@ class TCPClient {
 
     public void send_register_message(String username, boolean if_to_receive, DataOutputStream out_to_server) throws IOException{
         String message = "";
+        byte[] public_key = this.key.getPublic().getEncoded();
+        String pub_key = java.util.Base64.getEncoder().encodeToString(public_key);
         if(!if_to_receive)
-            message = "REGISTER TOSEND "+ username + "\n";
+            message = "REGISTER TOSEND "+ username + "\nKey: " + pub_key+"\n";
         else
             message = "REGISTER TORECV "+ username + "\n";
         out_to_server.writeBytes(message + '\n');
         return;
-    }
-    public boolean registerSocket(String username, boolean if_to_receive, DataOutputStream out_to_server, BufferedReader input_server) throws IOException{
-       send_register_message(username, if_to_receive, out_to_server);
-       String server_input = "";
-       while(input_server.ready()){
-        String temp = input_server.readLine();
-        if(temp.length() == 0)
-            continue;
-        else
-            server_input = temp;
-       }
-       return (check_if_registered(server_input));
     }
 
     public boolean check_if_registered(String message) throws IOException{
@@ -70,6 +67,19 @@ class TCPClient {
             return true;
      }
 
+    public boolean registerSocket(String username, boolean if_to_receive, DataOutputStream out_to_server, BufferedReader input_server) throws IOException{
+       send_register_message(username, if_to_receive, out_to_server);
+       String server_input = "";
+       while(input_server.ready()){
+        String temp = input_server.readLine();
+        if(temp.length() == 0)
+            continue;
+        else
+            server_input = temp;
+       }
+       return (check_if_registered(server_input));
+    }
+
     public void main(String argv[]) throws Exception 
     { 
         String sentence, modifiedSentence;
@@ -84,7 +94,8 @@ class TCPClient {
      
         serverAddress = InetAddress.getByName(inFromUser.readLine());
 
-        Socket clientSocketSend = new Socket(serverAddress, 6789);
+        Socket clientSocketReceivetSend = new Socket(serverAddress, 6789);
+        key = generateKeyPair();
         Socket clientSocketReceive = new Socket(serverAddress, 6789);  
 
         //------------------------**USER DETAILS RETRIEVED**-----------------------------//
@@ -98,7 +109,7 @@ class TCPClient {
         DataOutputStream outToClient = new DataOutputStream(System.out);
         DataOutputStream outServer = new DataOutputStream(clientSocketReceive.getOutputStream());
 
-        registerSocketActivity(outToServer, false,inServer, outServer,true, inFromServer, inFromUser);
+        registerSocketActivity(outToServer, false,inServer,outServer, true, inFromServer, inFromUser);
         SocketThread send_thread = new SocketThread(clientSocketSend, inFromUser, outToServer, inServer);
         Thread send_socket_thread = new Thread(send_thread);
         SocketThread receive_thread = new SocketThread(clientSocketReceive, inFromServer, outToClient, outServer);
@@ -134,16 +145,18 @@ class SocketThread extends TCPClient implements Runnable {
         if_receiving = true;
      }
 
-
      public void run() {
         if(!this.if_receiving)
             read_inp_from_user();
         else
             read_inp_from_server();      
     }
-    public void send_message(String username, long content_length, String message) throws IOException{
-        String message_to_send = "SEND " + username + "\nContent-length : " + Long.toString(content_length) + "\n";
-        message_to_send += "\nmessage" + "\n";
+    public void send_message(String username, long content_length, String message, String key) throws IOException{
+        byte[] recipient_key = java.util.Base64.getDecoder().decode(key);
+        byte[] encrypted_data = encrypt(recipient_key, message.getBytes());
+        String message_encrypted = java.util.Base64.getEncoder().encodeToString(encrypted_data);
+        String message_to_send = "SEND " + username + "\nContent-length: " + Long.toString(content_length) + "\n\n";
+        message_to_send += message_encrypted + "\n";
         this.output_to_server.writeBytes(message_to_send + '\n');
     }
 
@@ -168,6 +181,12 @@ class SocketThread extends TCPClient implements Runnable {
             }
         }
     }
+    public void request_for_deregistration() throws IOException{
+        String message_to_send = "DEREGISTER " + get_username() +"\n";
+        this.output_to_server.writeBytes(message_to_send);
+        String response = this.input_from_server.readLine();
+        System.out.println("You have been successfully deregistered");
+    }
     public void read_inp_from_user(){
         while(true) { 
             try {
@@ -176,6 +195,10 @@ class SocketThread extends TCPClient implements Runnable {
                 long content_length = 0;
                 while(input.ready()){
                     String message = this.input.readLine();
+                    if(message.equals("UNREGISTER")){
+                        request_for_deregistration();
+                        System.exit(0);
+                    }
                     if(message == null)
                         System.out.println("Invalid Command");
                     int counter = 0;
@@ -184,9 +207,17 @@ class SocketThread extends TCPClient implements Runnable {
                             recipient_username += Character.toString(message.charAt(counter));
                         counter++; 
                     }
-                    String message_content = message.substring(counter+1,message.length());
-                    long message_content_length = message_content.length();
-                    send_message(recipient_username, message_content_length, message_content);       
+                    long message_content_length = 0;
+                    String message_content = "";                    
+                    if(counter != message.length()){
+                        message_content = message.substring(counter+1,message.length());
+                        message_content_length = message_content.length();
+                    }
+                    String fetch_key = "FETCHKEY " + recipient_username;
+                    this.output_to_server.writeBytes(fetch_key);
+                    String[] key_message = this.input_from_server.readLine().split(" ");
+                    String key_recipient = key_message[1];
+                    send_message(recipient_username, message_content_length, message_content, key_recipient);       
                     String server_response = "";
                     String temp = "";
                     while((temp = this.input_from_server.readLine()) != null){
@@ -236,10 +267,14 @@ class SocketThread extends TCPClient implements Runnable {
                         String[] words = message.split(" ");
                         if(words[0].equals("FORWARD"))
                             sender_username = words[1];
-                        if(words[0].equals("Content-length"))
-                            content_length = Long.parseLong(words[2]);
+                        if(words[0].equals("Content-length:"))
+                            content_length = Long.parseLong(words[1]);
                     }
-                    else
+                    else{
+                        byte[] private_key = get_key().getPrivate().getEncoded();
+                        byte[] decoded_data = java.util.Base64.getDecoder().decode(message);
+                        String decrypted_data = decrypt(private_key, decoded_data);
+                        message = decrypted_data;
                         if((long)message.length() == content_length){
                             System.out.println("Message from "+ sender_username);
                             System.out.println(message);
@@ -247,6 +282,7 @@ class SocketThread extends TCPClient implements Runnable {
                         }
                         else
                             send_error_ack();
+                    }
                 } 
             }
             catch(Exception e) {
