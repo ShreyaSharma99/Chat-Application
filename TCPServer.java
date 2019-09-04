@@ -2,101 +2,6 @@ import java.io.*;
 import java.net.*; 
 import java.util.*;
  
-
-class SocketThread extends TCPServer implements Runnable {
-  String serverReply;
-  String fwdMessage; 
-  String errorMessage;
-  String username;
-  String receiver;
-  String pubKey;
-  Socket connectionSocket = null;
-  BufferedReader inFromClient1;
-  DataOutputStream outToClient1;  //client 1 is the calling client
-   
-  public SocketThread(Socket connectionSocket, BufferedReader inFromClient, DataOutputStream outToClient){
-    System.out.println("I was here");
-    this.connectionSocket = connectionSocket;
-    this.inFromClient1 = inFromClient;
-    this.outToClient1 = outToClient;
-  } 
-
-  public void run() {
-    while(true) { 
-     try {
-
-
-      String[] str = new String[5];
-      str = readMessage(inFromClient1, connectionSocket, outToClient1);
-      serverReply = str[0];
-      fwdMessage = str[1];
-      errorMessage = str[2];
-      username = str[3];
-      receiver = str[4];
-      pubKey = str[5];
-      if(serverReply.length()!=0){
-        this.outToClient1.writeBytes(serverReply);
-      } 
-      //check when server reply is an error message
-      if(pubKey.length()!=0){
-        this.outToClient1.writeBytes(pubKey);
-        break;
-      }
-      else if(receiver.equals("deregister")){
-        if(findSender(connectionSocket).length()!=0){
-          this.outToClient1.writeBytes("SUCCESS \n");
-          sendSocketMap.remove(username);
-          connectionSocket.close();
-          break;
-        }
-        else if(findSenderR(connectionSocket).length()!=0){
-          this.outToClient1.writeBytes("SUCCESS \n");
-          recSocketMap.remove(username);
-          connectionSocket.close();
-          break;
-        }
-        else{
-          this.outToClient1.writeBytes("FAIL: User was not registered  \n");
-          break;
-        }
-      }
-
-      if(receiver.equals("receive")){
-        break;
-      }
-
-      boolean is_error_possible = true;
-      while(fwdMessage.length()!=0 && username.length()!=0 && is_error_possible){
-        //forwrad message to receiving client
-        SocketConnection forwardSocket = recSocketMap.get(username);
-        String sender = findSender(connectionSocket);
-        String forwardMessage = createForwardMessage(sender,fwdMessage);
-        forwardSocket.getOutToClient().writeBytes(forwardMessage);
-        // BufferedReader inFromClient = new BufferedReader(new InputStreamReader(connectionSocket.getInputStream()));
-        // DataOutputStream outToClient2 = new DataOutputStream(forwardSocket.getOutputStream());
-        // outToClient2.writeBytes(fwdMessage);
-        // forwardSocket.getInFromClient() = new BufferedReader(new InputStreamReader(forwardSocket.getSocket().getInputStream()));
-        String[] reply = new String[5];
-        reply = readMessage(forwardSocket.getInFromClient(), forwardSocket.getSocket(), forwardSocket.getOutToClient()); 
-        if(reply[2].length()==0) is_error_possible = false;
-        //check when server reply is an error message
-      }
-
-      if(!is_error_possible){
-        serverReply = "SENT " + username + "\n \n";
-        this.outToClient1.writeBytes(serverReply);
-      }
-
-     }catch(Exception e) {
-        try {
-         connectionSocket.close();
-        } catch(Exception ee) { }
-        break;
-     }
-    } 
-  }  
-}
-
 class TCPServer { 
 
   public static HashMap<String, SocketConnection> sendSocketMap = new HashMap<>(); 
@@ -174,6 +79,7 @@ class TCPServer {
 
   public String[] readMessage(BufferedReader inFromClient, Socket connectionSocket, DataOutputStream outToClient) throws IOException{
 
+    System.out.println("tosend2");
     String clientMessage = "";
     String serverReply = "";
     String fwdMessage = "";
@@ -182,26 +88,30 @@ class TCPServer {
     String receiver = "";
     String pubKey = "";
     try{
+      System.out.println(inFromClient.readLine());
     while(inFromClient.ready()){
       clientMessage = inFromClient.readLine();
       String[] word = clientMessage.split("\\s+");
+      System.out.println(word[0]);
         //when input message was for registration
         if(word[0].equals("REGISTER")){
           if(word[1].equals("TOSEND")){
+            System.out.println("3");
             receiver = "send";
             username = word[2];
             if(checkUserName(username)){
               SocketConnection senderSocket = new SocketConnection(username, connectionSocket, inFromClient, outToClient);
               sendSocketMap.put(username,senderSocket);
               clientMessage = inFromClient.readLine();
-              if(clientMessage != null){
+              if(clientMessage != null && clientMessage.length()==0){
                 clientMessage = inFromClient.readLine();
-                if(clientMessage == null){
+                // if(clientMessage == null){
+                  System.out.println("registed sender");
                   serverReply = "REGISTERED TOSEND "+username+"\n\n";
                   while(inFromClient.ready())
                     clientMessage = inFromClient.readLine();
                   break;
-                }
+                // }
               }
             }
             else{
@@ -301,6 +211,7 @@ class TCPServer {
 
       }
     }catch(Exception e){
+      System.out.println(e);
       while(inFromClient.ready())
         clientMessage = inFromClient.readLine();
       serverReply = "ERROR 103 Header incomplete \n\n";
@@ -325,7 +236,7 @@ class TCPServer {
     return true;
   }
 
-  public static void main(String argv[]) throws Exception 
+  public static void main(String args[]) throws Exception 
     { 
 
       ServerSocket welcomeSocket = new ServerSocket(6789); 
@@ -339,9 +250,105 @@ class TCPServer {
         SocketThread socketThread = new SocketThread(connectionSocket, inFromClient, outToClient);
         System.out.println("Registration done");
         Thread thread = new Thread(socketThread);
-
         thread.run();  
 
       }
     }
 } 
+
+class SocketThread extends TCPServer implements Runnable {
+  String serverReply;
+  String fwdMessage; 
+  String errorMessage;
+  String username;
+  String receiver;
+  String pubKey;
+  Socket connectionSocket = null;
+  BufferedReader inFromClient1;
+  DataOutputStream outToClient1;  //client 1 is the calling client
+   
+
+  public SocketThread(Socket connectionSocket, BufferedReader inFromClient, DataOutputStream outToClient){
+    System.out.println("I was here");
+    this.connectionSocket = connectionSocket;
+    this.inFromClient1 = inFromClient;
+    this.outToClient1 = outToClient;
+    // System.out.println("entered");
+  } 
+
+  public void run() {
+    while(true) { 
+     try {
+      String[] str = new String[5];
+      System.out.println("1");
+       System.out.println("1st" + inFromClient1.ready());
+      str = readMessage(this.inFromClient1, this.connectionSocket, this.outToClient1);
+      System.out.println("2");
+      serverReply = str[0];
+      fwdMessage = str[1];
+      errorMessage = str[2];
+      username = str[3];
+      receiver = str[4];
+      pubKey = str[5];
+      if(serverReply.length()!=0){
+        this.outToClient1.writeBytes(serverReply);
+      } 
+      //check when server reply is an error message
+      if(pubKey.length()!=0){
+        this.outToClient1.writeBytes(pubKey);
+        break;
+      }
+      else if(receiver.equals("deregister")){
+        if(findSender(connectionSocket).length()!=0){
+          this.outToClient1.writeBytes("SUCCESS \n");
+          sendSocketMap.remove(username);
+          connectionSocket.close();
+          break;
+        }
+        else if(findSenderR(connectionSocket).length()!=0){
+          this.outToClient1.writeBytes("SUCCESS \n");
+          recSocketMap.remove(username);
+          connectionSocket.close();
+          break;
+        }
+        else{
+          this.outToClient1.writeBytes("FAIL: User was not registered  \n");
+          break;
+        }
+      }
+
+      if(receiver.equals("receive")){
+        break;
+      }
+
+      boolean is_error_possible = true;
+      while(fwdMessage.length()!=0 && username.length()!=0 && is_error_possible){
+        //forwrad message to receiving client
+        SocketConnection forwardSocket = recSocketMap.get(username);
+        String sender = findSender(connectionSocket);
+        String forwardMessage = createForwardMessage(sender,fwdMessage);
+        forwardSocket.getOutToClient().writeBytes(forwardMessage);
+        // BufferedReader inFromClient = new BufferedReader(new InputStreamReader(connectionSocket.getInputStream()));
+        // DataOutputStream outToClient2 = new DataOutputStream(forwardSocket.getOutputStream());
+        // outToClient2.writeBytes(fwdMessage);
+        // forwardSocket.getInFromClient() = new BufferedReader(new InputStreamReader(forwardSocket.getSocket().getInputStream()));
+        String[] reply = new String[5];
+        reply = readMessage(forwardSocket.getInFromClient(), forwardSocket.getSocket(), forwardSocket.getOutToClient()); 
+        if(reply[2].length()==0) is_error_possible = false;
+        //check when server reply is an error message
+      }
+
+      if(!is_error_possible){
+        serverReply = "SENT " + username + "\n \n";
+        this.outToClient1.writeBytes(serverReply);
+      }
+
+     }catch(Exception e) {
+        try {
+         connectionSocket.close();
+        } catch(Exception ee) { }
+        break;
+     }
+    } 
+  }  
+}
