@@ -7,7 +7,7 @@ class TCPServer {
 
   public static HashMap<String, SocketConnection> sendSocketMap = new HashMap<>(); 
   public static HashMap<String, SocketConnection> recSocketMap = new HashMap<>(); 
-  public static HashMap<String, Integer> keyMap = new HashMap<>();
+  public static HashMap<String, String> keyMap = new HashMap<>();
 
   class SocketConnection{ 
     // Instance Variables 
@@ -86,6 +86,7 @@ class TCPServer {
     String errorMessage = "";
     String username = "";
     String receiver = "";
+    String pubKey = "";
     try{
     while(inFromClient.ready()){
       clientMessage = inFromClient.readLine();
@@ -122,14 +123,18 @@ class TCPServer {
             if(checkUserName(username)){
               SocketConnection receiverSocket = new SocketConnection(username, connectionSocket, inFromClient, outToClient);
               recSocketMap.put(username,receiverSocket);
-              clientMessage = inFromClient.readLine();
-              if(clientMessage != null){
+              if(word[3].equals("Key:")){
+                pubKey = word[4];
+                keyMap.put(username,pubKey);
                 clientMessage = inFromClient.readLine();
-                if(clientMessage == null){
-                  serverReply = "REGISTERED TORECV "+username+"\n\n";
-                  while(inFromClient.ready())
-                    clientMessage = inFromClient.readLine();
-                  break;
+                if(clientMessage != null){
+                  clientMessage = inFromClient.readLine();
+                  if(clientMessage == null){
+                    serverReply = "REGISTERED TORECV "+username+"\n\n";
+                    while(inFromClient.ready())
+                      clientMessage = inFromClient.readLine();
+                    break;
+                  }
                 }
               }
             }
@@ -182,6 +187,15 @@ class TCPServer {
             clientMessage = inFromClient.readLine();
           break;
         }
+        else if(word[0].equals("FETCHKEY")){
+          username = word[1];
+          if(keyMap.containsKey(username)){
+            pubKey = keyMap.get(username);
+            while(inFromClient.ready())
+              clientMessage = inFromClient.readLine();
+            break;
+          }
+        }
         else if(word[0].equals("ERROR")){
           if(word[1].equals("103")){
             errorMessage = "Header incomplete";
@@ -197,12 +211,13 @@ class TCPServer {
         clientMessage = inFromClient.readLine();
       serverReply = "ERROR 103 Header incomplete \n\n";
     }
-    String[] answer = new String[5];
+    String[] answer = new String[6];
     answer[0] = serverReply;
     answer[1] = fwdMessage;
     answer[2] = errorMessage;
     answer[3] = username;
     answer[4] = receiver;
+    answer[5] = pubKey;
     return answer; 
   } 
 
@@ -245,6 +260,7 @@ class SocketThread extends TCPServer implements Runnable {
   String errorMessage;
   String username;
   String receiver;
+  String pubKey;
   Socket connectionSocket;
   BufferedReader inFromClient1;
   DataOutputStream outToClient1;  //client 1 is the calling client
@@ -267,12 +283,16 @@ class SocketThread extends TCPServer implements Runnable {
       errorMessage = str[2];
       username = str[3];
       receiver = str[4];
-
+      pubKey = str[5];
       if(serverReply.length()!=0){
         this.outToClient1.writeBytes(serverReply);
       } 
       //check when server reply is an error message
-      if(receiver.equals("deregister")){
+      if(pubKey.length()!=0){
+        this.outToClient1.writeBytes(pubKey);
+        break;
+      }
+      else if(receiver.equals("deregister")){
         if(findSender(connectionSocket).length()!=0){
           this.outToClient1.writeBytes("SUCCESS \n");
           sendSocketMap.remove(username);
