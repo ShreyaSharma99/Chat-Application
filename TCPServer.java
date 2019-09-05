@@ -51,7 +51,7 @@ class TCPServer {
   public String findSender(Socket connectionSocket){
     String sender="";
     for(Map.Entry<String,SocketConnection> entry: sendSocketMap.entrySet()){
-      System.out.println(entry.getValue().getUsername());
+      System.out.println("find: "+entry.getValue().getUsername());
       if(entry.getValue().getSocket()==connectionSocket){
           sender = (String)entry.getKey();
           break; //breaking because its one to one map
@@ -79,7 +79,7 @@ class TCPServer {
 
   public String[] readMessage(BufferedReader inFromClient, Socket connectionSocket, DataOutputStream outToClient) throws IOException{
 
-    System.out.println("tosend2");
+    // System.out.println("tosend2");
     String clientMessage = "";
     String serverReply = "";
     String fwdMessage = "";
@@ -88,7 +88,7 @@ class TCPServer {
     String receiver = "";
     String pubKey = "";
     try{
-      System.out.println(inFromClient.readLine());
+      // System.out.println(inFromClient.readLine());
     while(inFromClient.ready()){
       clientMessage = inFromClient.readLine();
       String[] word = clientMessage.split("\\s+");
@@ -96,23 +96,30 @@ class TCPServer {
         //when input message was for registration
         if(word[0].equals("REGISTER")){
           if(word[1].equals("TOSEND")){
-            System.out.println("3");
+            // System.out.println("3");
             receiver = "send";
+
             username = word[2];
             if(checkUserName(username)){
               SocketConnection senderSocket = new SocketConnection(username, connectionSocket, inFromClient, outToClient);
               sendSocketMap.put(username,senderSocket);
               clientMessage = inFromClient.readLine();
+
               if(clientMessage != null && clientMessage.length()==0){
-                clientMessage = inFromClient.readLine();
+                // System.out.println("registed sender");
+                // clientMessage = inFromClient.readLine();
                 // if(clientMessage == null){
-                  System.out.println("registed sender");
+                  System.out.println("registed sender done");
                   serverReply = "REGISTERED TOSEND "+username+"\n\n";
-                  while(inFromClient.ready())
-                    clientMessage = inFromClient.readLine();
+                  outToClient.writeBytes(serverReply);
+                  System.out.println(serverReply);
+                  // while(inFromClient.ready()){
+                  //   System.out.println("hola");
+                  //   clientMessage = inFromClient.readLine();
+                  // }
                   break;
-                // }
-              }
+                }
+              // }
             }
             else{
               serverReply = "ERROR 100 Malformed "+username+"\n\n";
@@ -236,16 +243,17 @@ class TCPServer {
     return true;
   }
 
-  public static void main(String args[]) throws Exception 
+  public static void main(String[] args) throws Exception 
     { 
-
       ServerSocket welcomeSocket = new ServerSocket(6789); 
-      
-      while(true) { 
-        Socket connectionSocket = welcomeSocket.accept(); 
 
-        BufferedReader inFromClient = new BufferedReader(new InputStreamReader(connectionSocket.getInputStream())); 
-        DataOutputStream outToClient = new DataOutputStream(connectionSocket.getOutputStream()); 
+      while(true) { 
+        Socket connectionSocket = new Socket();
+        connectionSocket = welcomeSocket.accept(); 
+        System.out.println(connectionSocket.getPort());
+       
+        BufferedReader inFromClient = new BufferedReader(new InputStreamReader(connectionSocket.getInputStream()));
+        DataOutputStream outToClient = new DataOutputStream(connectionSocket.getOutputStream());
         System.out.println("Welcome");
         SocketThread socketThread = new SocketThread(connectionSocket, inFromClient, outToClient);
         System.out.println("Registration done");
@@ -258,8 +266,8 @@ class TCPServer {
 
 class SocketThread extends TCPServer implements Runnable {
   String serverReply;
-  String fwdMessage; 
-  String errorMessage;
+  String fwdMessage;
+  String errorMessage; 
   String username;
   String receiver;
   String pubKey;
@@ -268,11 +276,11 @@ class SocketThread extends TCPServer implements Runnable {
   DataOutputStream outToClient1;  //client 1 is the calling client
    
 
-  public SocketThread(Socket connectionSocket, BufferedReader inFromClient, DataOutputStream outToClient){
+  public SocketThread(Socket connectionSocket, BufferedReader inFromClient, DataOutputStream outToClient) throws IOException{
     System.out.println("I was here");
     this.connectionSocket = connectionSocket;
     this.inFromClient1 = inFromClient;
-    this.outToClient1 = outToClient;
+    this.outToClient1 =  outToClient; 
     // System.out.println("entered");
   } 
 
@@ -280,10 +288,10 @@ class SocketThread extends TCPServer implements Runnable {
     while(true) { 
      try {
       String[] str = new String[5];
-      System.out.println("1");
-       System.out.println("1st" + inFromClient1.ready());
+      // System.out.println("1");
+       // System.out.println("1st " + inFromClient1.ready());
       str = readMessage(this.inFromClient1, this.connectionSocket, this.outToClient1);
-      System.out.println("2");
+      // System.out.println("2");
       serverReply = str[0];
       fwdMessage = str[1];
       errorMessage = str[2];
@@ -291,7 +299,9 @@ class SocketThread extends TCPServer implements Runnable {
       receiver = str[4];
       pubKey = str[5];
       if(serverReply.length()!=0){
-        this.outToClient1.writeBytes(serverReply);
+        // outToClient1 =  sendSocketMap.get(findSender(connectionSocket)).getOutToClient();
+        // this.outToClient1.writeBytes(serverReply);
+        System.out.println(serverReply + "port "+connectionSocket.getPort());
       } 
       //check when server reply is an error message
       if(pubKey.length()!=0){
