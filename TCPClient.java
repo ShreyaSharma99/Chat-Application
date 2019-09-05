@@ -26,11 +26,11 @@ class TCPClient extends CryptographyExample {
     public MessageDigest get_digest(){
         return md;
     }
-
-    public static void registerSocketActivity(DataOutputStream sendSocketStream1, boolean if1receive, BufferedReader input_server_1, DataOutputStream sendSocketStream2, boolean if2receive, BufferedReader input_server_2, BufferedReader input_from_user) throws IOException{
+//, DataOutputStream sendSocketStream2, boolean if2receive, BufferedReader input_server_2, BufferedReader input_from_user)
+    public static void registerSocketActivity(DataOutputStream sendSocketStream1, boolean if1receive, BufferedReader input_server_1,BufferedReader input_from_user) throws IOException{
         boolean sender_registered = registerSocket(username, if1receive, sendSocketStream1, input_server_1);
-        boolean receiver_registered = registerSocket(username, if2receive, sendSocketStream2,input_server_2);   
-        if(sender_registered && receiver_registered)
+        //boolean receiver_registered = registerSocket(username, if2receive, sendSocketStream2,input_server_2);   
+        if(sender_registered)// && receiver_registered)
             return;
         else{
             System.out.println("Do you wish to continue anyway or Exit? Y or N or E");
@@ -39,7 +39,7 @@ class TCPClient extends CryptographyExample {
                 return;
             else{
                 if(response.equals("N"))
-                    registerSocketActivity(sendSocketStream1, if1receive, input_server_1,sendSocketStream2, if2receive, input_server_2, input_from_user);
+                    registerSocketActivity(sendSocketStream1, if1receive, input_server_1, input_from_user);//,sendSocketStream2, if2receive, input_server_2, input_from_user);
                 else
                     System.exit(1);
             }
@@ -78,14 +78,18 @@ class TCPClient extends CryptographyExample {
     public static boolean registerSocket(String username, boolean if_to_receive, DataOutputStream out_to_server, BufferedReader input_server) throws IOException{
        send_register_message(username, if_to_receive, out_to_server);
        String server_input = "";
-       while(input_server.ready()){
-        System.out.println("yoyo");
-        String temp = input_server.readLine();
+       while(true){
+        String temp = "abc";
+        if(input_server.ready())
+            temp = input_server.readLine();
         if(temp.length() == 0)
-            continue;
-        else
+            break;
+        else{
             server_input = temp;
+            System.out.println("yoyo");
+        }
        }
+       System.out.println(server_input);
        return (check_if_registered(server_input));
     }
 
@@ -107,7 +111,7 @@ class TCPClient extends CryptographyExample {
         
         key = generateKeyPair();
         md = MessageDigest.getInstance("SHA-256");
-        Socket clientSocketReceive = new Socket(serverAddress, 6789);  
+        //Socket clientSocketReceive = new Socket(serverAddress, 6789);  
 
         //------------------------**USER DETAILS RETRIEVED**-----------------------------//
 
@@ -116,17 +120,17 @@ class TCPClient extends CryptographyExample {
         BufferedReader inServer = new BufferedReader(new InputStreamReader(clientSocketSend.getInputStream()));
 
         //Input and Output for Socket responsible for receiving messages
-        BufferedReader inFromServer = new BufferedReader(new InputStreamReader(clientSocketReceive.getInputStream())); 
-        DataOutputStream outToClient = new DataOutputStream(System.out);
-        DataOutputStream outServer = new DataOutputStream(clientSocketReceive.getOutputStream());
+        //BufferedReader inFromServer = new BufferedReader(new InputStreamReader(clientSocketReceive.getInputStream())); 
+        //DataOutputStream outToClient = new DataOutputStream(System.out);
+        //DataOutputStream outServer = new DataOutputStream(clientSocketReceive.getOutputStream());
 
-        registerSocketActivity(outToServer, false,inServer,outServer, true, inFromServer, inFromUser);
+        registerSocketActivity(outToServer, false,inServer, inFromUser);//,outServer, true, inFromServer, inFromUser);
         SocketThread send_thread = new SocketThread(clientSocketSend, inFromUser, outToServer, inServer);
         Thread send_socket_thread = new Thread(send_thread);
-        SocketThread receive_thread = new SocketThread(clientSocketReceive, inFromServer, outToClient, outServer);
-        Thread receive_socket_thread = new Thread(receive_thread);
+        //SocketThread receive_thread = new SocketThread(clientSocketReceive, inFromServer, outToClient, outServer);
+        //Thread receive_socket_thread = new Thread(receive_thread);
         send_socket_thread.run();
-        receive_socket_thread.run();
+        //receive_socket_thread.run();
     } 
 } 
 
