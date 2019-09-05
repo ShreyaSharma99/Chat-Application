@@ -72,8 +72,8 @@ class TCPServer {
     return sender;    
   }
 
-  public String createForwardMessage(String sender,String fwdMessage){
-    String answer = "FORWARD "+ sender + "\n" + "Content-length: "+(fwdMessage.length())+"\n"+"\n"+fwdMessage;
+  public String createForwardMessage(String sender,String fwdMessage,String contLen){
+    String answer = "FORWARD "+ sender + "\n" + "Content-length: "+contLen+"\n\n"+fwdMessage+"\n\n";
     return answer;
   }
 
@@ -87,10 +87,13 @@ class TCPServer {
     String username = "";
     String receiver = "";
     String pubKey = "";
+    String contLen = "";
     try{
-      // System.out.println("in read messg");
+      // System.out.println(inFromClient.ready());
     while(inFromClient.ready()){
+      System.out.println("here we are");
       clientMessage = inFromClient.readLine();
+      System.out.println(clientMessage);
       String[] word = clientMessage.split("\\s+");
       System.out.println(word[0]);
         //when input message was for registration
@@ -163,8 +166,8 @@ class TCPServer {
           username = word[1];
           if(!recSocketMap.containsKey(username)){
             serverReply = "ERROR 102 Unable to send\n\n";
-            while(inFromClient.ready())
-              clientMessage = inFromClient.readLine();
+            // while(inFromClient.ready())
+            //   clientMessage = inFromClient.readLine();
             break;
           }
 
@@ -173,15 +176,17 @@ class TCPServer {
 
           if(word1[0].equals("Content-length:")){
             int mssg_len = Integer.parseInt(word1[1]);
+            contLen = word1[1];
             if(inFromClient.readLine().length() == 0){
               fwdMessage = inFromClient.readLine();
-              if(fwdMessage.length()!=mssg_len){
-                fwdMessage ="";
-                serverReply = "ERROR - Content length and message length mismatch !";
-                // while(inFromClient.ready())
+              String velliLine = inFromClient.readLine();
+              // if(fwdMessage.length()!=mssg_len){
+              //   fwdMessage ="";
+              //   serverReply = "ERROR - Content length and message length mismatch !";
+              //   // while(inFromClient.ready())
                 //   clientMessage = inFromClient.readLine();
                 break;
-              }
+              // }
             } 
           }
         }
@@ -189,6 +194,7 @@ class TCPServer {
         else if(word[0].equals("RECEIVED")){
           // while(inFromClient.ready())
           //   clientMessage = inFromClient.readLine();
+          System.out.println("ack");
           break;
         }
 
@@ -203,7 +209,7 @@ class TCPServer {
           username = word[1];
           if(keyMap.containsKey(username)){
             pubKey = keyMap.get(username);
-            System.out.println("pubKey: "+pubKey);
+            // System.out.println("pubKey: "+pubKey);
             // while(inFromClient.ready())
             //   clientMessage = inFromClient.readLine();
             break;
@@ -229,13 +235,14 @@ class TCPServer {
         clientMessage = inFromClient.readLine();
       serverReply = "ERROR 103 Header incomplete \n\n";
     }
-    String[] answer = new String[6];
+    String[] answer = new String[7];
     answer[0] = serverReply;
     answer[1] = fwdMessage;
     answer[2] = errorMessage;
     answer[3] = username;
     answer[4] = receiver;
     answer[5] = pubKey;
+    answer[6] = contLen;
     return answer; 
   } 
 
@@ -256,11 +263,11 @@ class TCPServer {
       while(true) { 
         Socket connectionSocket = new Socket();
         connectionSocket = welcomeSocket.accept(); 
-        System.out.println(connectionSocket.getPort());
+        System.out.println(connectionSocket.getPort()+" Welcome");
        
         BufferedReader inFromClient = new BufferedReader(new InputStreamReader(connectionSocket.getInputStream()));
         DataOutputStream outToClient = new DataOutputStream(connectionSocket.getOutputStream());
-        System.out.println("Welcome");
+        // System.out.println("Welcome");
         SocketThread socketThread = new SocketThread(connectionSocket, inFromClient, outToClient);
         // System.out.println("Registration done");
         Thread thread = new Thread(socketThread);
@@ -277,6 +284,7 @@ class SocketThread extends TCPServer implements Runnable {
   String username;
   String receiver;
   String pubKey;
+  String contLen;
   Socket connectionSocket = null;
   BufferedReader inFromClient1;
   DataOutputStream outToClient1;  //client 1 is the calling client
@@ -293,7 +301,7 @@ class SocketThread extends TCPServer implements Runnable {
   public void run() {
     while(true) { 
      try {
-      String[] str = new String[5];
+      String[] str = new String[7];
       // System.out.println("1");
        // System.out.println("1st " + inFromClient1.ready());
       str = readMessage(this.inFromClient1, this.connectionSocket, this.outToClient1);
@@ -304,37 +312,38 @@ class SocketThread extends TCPServer implements Runnable {
       username = str[3];
       receiver = str[4];
       pubKey = str[5];
+      contLen = str[6];
       if(serverReply.length()!=0){
         // outToClient1 =  sendSocketMap.get(findSender(connectionSocket)).getOutToClient();
         this.outToClient1.writeBytes(serverReply);
         System.out.println(serverReply + "port "+connectionSocket.getPort());
       } 
       if(receiver.equals("receive")){
-        break;
+        // break;
       }
       //check when server reply is an error message
       if(pubKey.length()!=0){
-        String output = "Key: "+ pubKey;
+        String output = "Key: "+ pubKey + "\n";
         this.outToClient1.writeBytes(output);
-        System.out.println(output + " port "+connectionSocket.getPort());
-        break;
+        System.out.println(output + "port "+connectionSocket.getPort());
+        // break;
       }
       else if(receiver.equals("deregister")){
         if(findSender(connectionSocket).length()!=0){
           this.outToClient1.writeBytes("SUCCESS \n");
           sendSocketMap.remove(username);
           connectionSocket.close();
-          break;
+          // break;
         }
         else if(findSenderR(connectionSocket).length()!=0){
           this.outToClient1.writeBytes("SUCCESS \n");
           recSocketMap.remove(username);
           connectionSocket.close();
-          break;
+          // break;
         }
         else{
           this.outToClient1.writeBytes("FAIL: User was not registered  \n");
-          break;
+          // break;
         }
       }
 
@@ -343,8 +352,9 @@ class SocketThread extends TCPServer implements Runnable {
         //forwrad message to receiving client
         SocketConnection forwardSocket = recSocketMap.get(username);
         String sender = findSender(connectionSocket);
-        String forwardMessage = createForwardMessage(sender,fwdMessage);
+        String forwardMessage = createForwardMessage(sender,fwdMessage,contLen);
         forwardSocket.getOutToClient().writeBytes(forwardMessage);
+        System.out.println(forwardMessage+ "port: "+forwardSocket.getSocket().getPort());
         // BufferedReader inFromClient = new BufferedReader(new InputStreamReader(connectionSocket.getInputStream()));
         // DataOutputStream outToClient2 = new DataOutputStream(forwardSocket.getOutputStream());
         // outToClient2.writeBytes(fwdMessage);
@@ -356,8 +366,9 @@ class SocketThread extends TCPServer implements Runnable {
       }
 
       if(!is_error_possible){
-        serverReply = "SENT " + username + "\n \n";
+        serverReply = "SENT " + username + "\n\n";
         this.outToClient1.writeBytes(serverReply);
+        System.out.println(serverReply+" port: "+ this.connectionSocket.getPort());
       }
 
      }catch(Exception e) {
