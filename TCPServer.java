@@ -88,7 +88,7 @@ class TCPServer {
     String receiver = "";
     String pubKey = "";
     try{
-      // System.out.println(inFromClient.readLine());
+      // System.out.println("in read messg");
     while(inFromClient.ready()){
       clientMessage = inFromClient.readLine();
       String[] word = clientMessage.split("\\s+");
@@ -111,8 +111,8 @@ class TCPServer {
                 // if(clientMessage == null){
                   System.out.println("registed sender done");
                   serverReply = "REGISTERED TOSEND "+username+"\n\n";
-                  outToClient.writeBytes(serverReply);
-                  System.out.println(serverReply);
+                  // outToClient.writeBytes(serverReply);
+                  // System.out.println(serverReply);
                   // while(inFromClient.ready()){
                   //   System.out.println("hola");
                   //   clientMessage = inFromClient.readLine();
@@ -123,8 +123,8 @@ class TCPServer {
             }
             else{
               serverReply = "ERROR 100 Malformed "+username+"\n\n";
-              while(inFromClient.ready())
-                clientMessage = inFromClient.readLine();
+              // while(inFromClient.ready())
+              //   clientMessage = inFromClient.readLine();
               break;
             }
           }
@@ -139,20 +139,20 @@ class TCPServer {
                 keyMap.put(username,pubKey);
                 clientMessage = inFromClient.readLine();
                 if(clientMessage != null){
-                  clientMessage = inFromClient.readLine();
-                  if(clientMessage == null){
+                  // clientMessage = inFromClient.readLine();
+                  // if(clientMessage == null){
                     serverReply = "REGISTERED TORECV "+username+"\n\n";
-                    while(inFromClient.ready())
-                      clientMessage = inFromClient.readLine();
+                    // while(inFromClient.ready())
+                    //   clientMessage = inFromClient.readLine();
                     break;
-                  }
+                  // }
                 }
               }
             }
             else{
               serverReply = "ERROR 100 Malformed "+username+"\n\n";
-              while(inFromClient.ready())
-                clientMessage = inFromClient.readLine();
+              // while(inFromClient.ready())
+              //   clientMessage = inFromClient.readLine();
               break;
             }
           }
@@ -176,9 +176,10 @@ class TCPServer {
             if(inFromClient.readLine().length() == 0){
               fwdMessage = inFromClient.readLine();
               if(fwdMessage.length()!=mssg_len){
+                fwdMessage ="";
                 serverReply = "ERROR - Content length and message length mismatch !";
-                while(inFromClient.ready())
-                  clientMessage = inFromClient.readLine();
+                // while(inFromClient.ready())
+                //   clientMessage = inFromClient.readLine();
                 break;
               }
             } 
@@ -186,32 +187,37 @@ class TCPServer {
         }
 
         else if(word[0].equals("RECEIVED")){
-          while(inFromClient.ready())
-            clientMessage = inFromClient.readLine();
+          // while(inFromClient.ready())
+          //   clientMessage = inFromClient.readLine();
           break;
         }
 
         else if(word[0].equals("DEREGISTER")){
           username = word[1];
           receiver = "deregister";
-          while(inFromClient.ready())
-            clientMessage = inFromClient.readLine();
+          // while(inFromClient.ready())
+          //   clientMessage = inFromClient.readLine();
           break;
         }
         else if(word[0].equals("FETCHKEY")){
           username = word[1];
           if(keyMap.containsKey(username)){
             pubKey = keyMap.get(username);
-            while(inFromClient.ready())
-              clientMessage = inFromClient.readLine();
+            System.out.println("pubKey: "+pubKey);
+            // while(inFromClient.ready())
+            //   clientMessage = inFromClient.readLine();
+            break;
+          }
+          else{
+            serverReply = "ERROR 102 Unable to send\n\n";
             break;
           }
         }
         else if(word[0].equals("ERROR")){
           if(word[1].equals("103")){
             errorMessage = "Header incomplete";
-            while(inFromClient.ready())
-              clientMessage = inFromClient.readLine();
+            // while(inFromClient.ready())
+            //   clientMessage = inFromClient.readLine();
             break;
           }
         }
@@ -256,10 +262,10 @@ class TCPServer {
         DataOutputStream outToClient = new DataOutputStream(connectionSocket.getOutputStream());
         System.out.println("Welcome");
         SocketThread socketThread = new SocketThread(connectionSocket, inFromClient, outToClient);
-        System.out.println("Registration done");
+        // System.out.println("Registration done");
         Thread thread = new Thread(socketThread);
-        thread.run();  
-
+        thread.start();  
+        System.out.println("out ");
       }
     }
 } 
@@ -277,7 +283,7 @@ class SocketThread extends TCPServer implements Runnable {
    
 
   public SocketThread(Socket connectionSocket, BufferedReader inFromClient, DataOutputStream outToClient) throws IOException{
-    System.out.println("I was here");
+    // System.out.priFntln("I was here");
     this.connectionSocket = connectionSocket;
     this.inFromClient1 = inFromClient;
     this.outToClient1 =  outToClient; 
@@ -300,12 +306,17 @@ class SocketThread extends TCPServer implements Runnable {
       pubKey = str[5];
       if(serverReply.length()!=0){
         // outToClient1 =  sendSocketMap.get(findSender(connectionSocket)).getOutToClient();
-        // this.outToClient1.writeBytes(serverReply);
+        this.outToClient1.writeBytes(serverReply);
         System.out.println(serverReply + "port "+connectionSocket.getPort());
       } 
+      if(receiver.equals("receive")){
+        break;
+      }
       //check when server reply is an error message
       if(pubKey.length()!=0){
-        this.outToClient1.writeBytes(pubKey);
+        String output = "Key: "+ pubKey;
+        this.outToClient1.writeBytes(output);
+        System.out.println(output + " port "+connectionSocket.getPort());
         break;
       }
       else if(receiver.equals("deregister")){
@@ -325,10 +336,6 @@ class SocketThread extends TCPServer implements Runnable {
           this.outToClient1.writeBytes("FAIL: User was not registered  \n");
           break;
         }
-      }
-
-      if(receiver.equals("receive")){
-        break;
       }
 
       boolean is_error_possible = true;
