@@ -109,25 +109,14 @@ class TCPServer {
               clientMessage = inFromClient.readLine();
 
               if(clientMessage != null && clientMessage.length()==0){
-                // System.out.println("registed sender");
-                // clientMessage = inFromClient.readLine();
-                // if(clientMessage == null){
                   System.out.println("registed sender done");
                   serverReply = "REGISTERED TOSEND "+username+"\n\n";
-                  // outToClient.writeBytes(serverReply);
-                  // System.out.println(serverReply);
-                  // while(inFromClient.ready()){
-                  //   System.out.println("hola");
-                  //   clientMessage = inFromClient.readLine();
-                  // }
                   break;
                 }
               // }
             }
             else{
               serverReply = "ERROR 100 Malformed "+username+"\n\n";
-              // while(inFromClient.ready())
-              //   clientMessage = inFromClient.readLine();
               break;
             }
           }
@@ -142,11 +131,7 @@ class TCPServer {
                 keyMap.put(username,pubKey);
                 clientMessage = inFromClient.readLine();
                 if(clientMessage != null){
-                  // clientMessage = inFromClient.readLine();
-                  // if(clientMessage == null){
                     serverReply = "REGISTERED TORECV "+username+"\n\n";
-                    // while(inFromClient.ready())
-                    //   clientMessage = inFromClient.readLine();
                     break;
                   // }
                 }
@@ -154,8 +139,6 @@ class TCPServer {
             }
             else{
               serverReply = "ERROR 100 Malformed "+username+"\n\n";
-              // while(inFromClient.ready())
-              //   clientMessage = inFromClient.readLine();
               break;
             }
           }
@@ -166,8 +149,6 @@ class TCPServer {
           username = word[1];
           if(!recSocketMap.containsKey(username)){
             serverReply = "ERROR 102 Unable to send\n\n";
-            // while(inFromClient.ready())
-            //   clientMessage = inFromClient.readLine();
             break;
           }
 
@@ -180,11 +161,6 @@ class TCPServer {
             if(inFromClient.readLine().length() == 0){
               fwdMessage = inFromClient.readLine();
               String velliLine = inFromClient.readLine();
-              // if(fwdMessage.length()!=mssg_len){
-              //   fwdMessage ="";
-              //   serverReply = "ERROR - Content length and message length mismatch !";
-              //   // while(inFromClient.ready())
-                //   clientMessage = inFromClient.readLine();
                 break;
               // }
             } 
@@ -302,8 +278,6 @@ class SocketThread extends TCPServer implements Runnable {
     while(true) { 
      try {
       String[] str = new String[7];
-      // System.out.println("1");
-       // System.out.println("1st " + inFromClient1.ready());
       str = readMessage(this.inFromClient1, this.connectionSocket, this.outToClient1);
       // System.out.println("2");
       serverReply = str[0];
@@ -355,10 +329,6 @@ class SocketThread extends TCPServer implements Runnable {
         String forwardMessage = createForwardMessage(sender,fwdMessage,contLen);
         forwardSocket.getOutToClient().writeBytes(forwardMessage);
         System.out.println(forwardMessage+ "port: "+forwardSocket.getSocket().getPort());
-        // BufferedReader inFromClient = new BufferedReader(new InputStreamReader(connectionSocket.getInputStream()));
-        // DataOutputStream outToClient2 = new DataOutputStream(forwardSocket.getOutputStream());
-        // outToClient2.writeBytes(fwdMessage);
-        // forwardSocket.getInFromClient() = new BufferedReader(new InputStreamReader(forwardSocket.getSocket().getInputStream()));
         String[] reply = new String[5];
         reply = readMessage(forwardSocket.getInFromClient(), forwardSocket.getSocket(), forwardSocket.getOutToClient()); 
         if(reply[2].length()==0) is_error_possible = false;
