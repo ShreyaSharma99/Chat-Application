@@ -460,7 +460,7 @@ class TCPServer {
     return true;
   }
 
-  public check_if_already_there(String un, int numb){
+  public boolean check_if_already_there(String un, int numb){
     if(numb==1){
       for(Map.Entry<String,SocketConnection> entry: sendSocketMap.entrySet()){
         if(entry.getValue().getUsername().equals(un))
@@ -488,14 +488,22 @@ class TCPServer {
         DataOutputStream outToClient = new DataOutputStream(connectionSocket.getOutputStream());
 
         int mode = Integer.parseInt(argv[0]);
-
-        if(mode == 1)
-          SocketThread_mode1 socketThread = new SocketThread_mode1(connectionSocket, inFromClient, outToClient);
-        else if(mode == 2)
-          SocketThread_mode2 socketThread = new SocketThread_mode2(connectionSocket, inFromClient, outToClient);
-        else
-          SocketThread_mode3 socketThread = new SocketThread_mode3(connectionSocket, inFromClient, outToClient);
-        Thread thread = new Thread(socketThread);
+        SocketThread_mode1 socketThread1;
+        SocketThread_mode2 socketThread2;
+        SocketThread_mode3 socketThread3;
+        Thread thread;
+        if(mode == 1){
+          socketThread1= new SocketThread_mode1(connectionSocket, inFromClient, outToClient);
+          thread = new Thread(socketThread1);
+        }
+        else if(mode == 2){
+          socketThread2 = new SocketThread_mode2(connectionSocket, inFromClient, outToClient);
+          thread = new Thread(socketThread2);
+        }
+        else{
+          socketThread3 = new SocketThread_mode3(connectionSocket, inFromClient, outToClient);
+          thread = new Thread(socketThread3);
+        }
         thread.start();
       }
     }
@@ -659,6 +667,7 @@ class SocketThread_mode2 extends TCPServer implements Runnable {
         String sender = findSender(connectionSocket);
         String forwardMessage = createForwardMessage_withoutHash(sender,fwdMessage,contLen, hash);
         forwardSocket.getOutToClient().writeBytes(forwardMessage);
+        String[] reply = new String[8];
         reply = readMessage_mode2(forwardSocket.getInFromClient(), forwardSocket.getSocket(), forwardSocket.getOutToClient());
         if(reply[2].length()==0) is_error_possible = false;
         //check when server reply is an error message
