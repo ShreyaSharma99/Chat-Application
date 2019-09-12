@@ -70,8 +70,12 @@ class TCPClient extends Cryptography {
             if(words[0].equals("ERROR")){
                 if(words[1].equals("100"))
                     System.out.println("Registration Failed. Username entered is invalid.");
-                else
-                    System.out.println("Registration Failed. You are not registered yet.");
+                else{
+                    if(words[1].equals("USERNAME"))
+                        System.out.println("Username entered is already taken.");
+                    else    
+                        System.out.println("Registration Failed. You are not registered yet.");
+                }
                 return false;    
             }
             return true;
@@ -232,8 +236,8 @@ class SocketThread extends TCPClient implements Runnable {
             try {
                 while(!input.ready()){
                     String recipient_username = "";
-                boolean message_started = false;
-                long content_length = 0;
+                    boolean message_started = false;
+                    long content_length = 0;
                     String message = this.input.readLine();
                     if(message.equals("DEREGISTER")){
                         request_for_deregistration();
@@ -265,6 +269,7 @@ class SocketThread extends TCPClient implements Runnable {
                         String[] key_message = ser_message.split(" ");
                         String key_recipient = key_message[1];
                         send_message(recipient_username, message_content_length, message_content, key_recipient);
+                        }
                     }
                     else
                         send_message(recipient_username, message_content_length, message_content, "");          
@@ -273,8 +278,7 @@ class SocketThread extends TCPClient implements Runnable {
                     server_response =  this.input_from_server.readLine();
                     temp = this.input_from_server.readLine();
                     respond_to_server_response(server_response, recipient_username);
-                    }   
-                }
+                }   
             } 
             catch(Exception e) {
                 try {
@@ -344,12 +348,14 @@ class SocketThread extends TCPClient implements Runnable {
                     else{
                         byte[] private_key = get_key().getPrivate().getEncoded();
                         byte[] decoded_data = java.util.Base64.getDecoder().decode(message);
+                        byte[] hash_digested = new byte[32];
+                        byte[] decrypted_hash = new byte[32];
                         if(mode == 3){
                             String hash = this.input_from_server.readLine();
                             byte[] hash1 = java.util.Base64.getDecoder().decode(hash);
-                            byte[] hash_digested = get_digest().digest(decoded_data);
+                            hash_digested = get_digest().digest(decoded_data);
                             byte[] public_key_sender = get_key_from_server(sender_username);
-                            byte[] decrypted_hash = decryptUsingPublic(public_key_sender,hash1);
+                            decrypted_hash = decryptUsingPublic(public_key_sender,hash1);
                         }
                         String empty = this.input_from_server.readLine();
                         String decrypted_data = new String(decrypt(private_key, decoded_data));
