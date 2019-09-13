@@ -86,16 +86,14 @@ class TCPClient extends Cryptography {
        String server_input = "";
        while(true){
         String temp = "";
-        if(!input_server.ready()){
+        if(!input_server.ready())
             temp = input_server.readLine();
-        }
         if(temp.length() == 0){
             temp = input_server.readLine();
             break;
         }
-        else{
+        else
             server_input = temp;
-        }
        }
        return (check_if_registered(server_input));
     }
@@ -179,10 +177,12 @@ class SocketThread extends TCPClient implements Runnable {
             byte[] recipient_key = java.util.Base64.getDecoder().decode(key1);
             byte[] encrypted_data = encrypt(recipient_key, message.getBytes());
             message_encrypted = java.util.Base64.getEncoder().encodeToString(encrypted_data);
-            byte[] hash = get_digest().digest(encrypted_data);
-            byte[] private_key = this.key.getPrivate().getEncoded();
-            byte[] encrypt_hash = encryptUsingPrivate(private_key,hash);
-            hash_base64 = java.util.Base64.getEncoder().encodeToString(encrypt_hash);
+            if(mode == 3){
+                byte[] hash = get_digest().digest(encrypted_data);
+                byte[] private_key = this.key.getPrivate().getEncoded();
+                byte[] encrypt_hash = encryptUsingPrivate(private_key,hash);
+                hash_base64 = java.util.Base64.getEncoder().encodeToString(encrypt_hash);
+            }
         }
         String message_to_send = "SEND " + username + "\nContent-length: " + Long.toString(content_length) + "\n\n";
         if(mode == 1)
@@ -301,11 +301,8 @@ class SocketThread extends TCPClient implements Runnable {
 
     public byte[] get_key_from_server(String username) throws IOException{
         String message_to_send = "FETCHKEY " + username+"\n";
-        //System.out.println(message_to_send);
         this.output_to_server.writeBytes(message_to_send);
-        //System.out.println("Ola");
         String response = this.input_from_server.readLine();
-        //System.out.println(response + " yeah");
         String[] key_message = response.split(" ");
         String key_recipient = key_message[1];
         byte[] pub_key = java.util.Base64.getDecoder().decode(key_recipient);
@@ -346,20 +343,28 @@ class SocketThread extends TCPClient implements Runnable {
                             content_length = Long.parseLong(words[1]);
                     }
                     else{
-                        byte[] private_key = get_key().getPrivate().getEncoded();
-                        byte[] decoded_data = java.util.Base64.getDecoder().decode(message);
                         byte[] hash_digested = new byte[32];
                         byte[] decrypted_hash = new byte[32];
+                        byte[] decoded_data = new byte[32];
+                        byte[] private_key = get_key().getPrivate().getEncoded();
+                        if(mode != 1)
+                            decoded_data = java.util.Base64.getDecoder().decode(message);
+                        String blank = "";
                         if(mode == 3){
                             String hash = this.input_from_server.readLine();
+                            blank = this.input_from_server.readLine();
                             byte[] hash1 = java.util.Base64.getDecoder().decode(hash);
                             hash_digested = get_digest().digest(decoded_data);
                             byte[] public_key_sender = get_key_from_server(sender_username);
                             decrypted_hash = decryptUsingPublic(public_key_sender,hash1);
                         }
-                        String empty = this.input_from_server.readLine();
-                        String decrypted_data = new String(decrypt(private_key, decoded_data));
-                        message = decrypted_data;
+                        else
+                            blank =  this.input_from_server.readLine();
+
+                        if(mode != 1){
+                            String decrypted_data = new String(decrypt(private_key, decoded_data));
+                            message = decrypted_data;
+                        }
                         if(((long)message.length() == content_length)){
                             if(mode == 3){
                                 if(check_if_same(decrypted_hash, hash_digested)){
