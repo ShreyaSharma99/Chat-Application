@@ -101,8 +101,8 @@ class TCPServer {
             receiver = "send";
             username = word[2];
             if(checkUserName(username)){
-              if(!check_if_already_there(username,1)){
-                serverReply = "ERROR USERNAME IS ALREADY TAKEN!";
+              if(check_if_already_there(username,1)){
+                serverReply = "ERROR USERNAME IS ALREADY TAKEN!" + "\n\n";
                 break;
               }
               SocketConnection senderSocket = new SocketConnection(username, connectionSocket, inFromClient, outToClient);
@@ -123,8 +123,8 @@ class TCPServer {
             receiver = "receive";
             username = word[2];
             if(checkUserName(username)){
-              if(!check_if_already_there(username,2)){
-                serverReply = "ERROR USERNAME IS ALREADY TAKEN!";
+              if(check_if_already_there(username,2)){
+                serverReply = "ERROR USERNAME IS ALREADY TAKEN!" + "\n\n";
                 break;
               }
               SocketConnection receiverSocket = new SocketConnection(username, connectionSocket, inFromClient, outToClient);
@@ -212,11 +212,11 @@ class TCPServer {
         if(word[0].equals("REGISTER")){
           if(word[1].equals("TOSEND")){
             receiver = "send";
-
             username = word[2];
             if(checkUserName(username)){
-              if(!check_if_already_there(username,1)){
-                serverReply = "ERROR USERNAME IS ALREADY TAKEN!";
+              if(check_if_already_there(username,1)){
+                //System.out.println("Oh really");
+                serverReply = "ERROR USERNAME IS ALREADY TAKEN!" + "\n\n";
                 break;
               }
               SocketConnection senderSocket = new SocketConnection(username, connectionSocket, inFromClient, outToClient);
@@ -237,8 +237,8 @@ class TCPServer {
             receiver = "receive";
             username = word[2];
             if(checkUserName(username)){
-              if(!check_if_already_there(username,2)){
-                serverReply = "ERROR USERNAME IS ALREADY TAKEN!";
+              if(check_if_already_there(username,2)){
+                serverReply = "ERROR USERNAME IS ALREADY TAKEN!" + "\n\n";
                 break;
               }
               SocketConnection receiverSocket = new SocketConnection(username, connectionSocket, inFromClient, outToClient);
@@ -344,8 +344,8 @@ class TCPServer {
             receiver = "send";
             username = word[2];
             if(checkUserName(username)){
-              if(!check_if_already_there(username,1)){
-                serverReply = "ERROR USERNAME IS ALREADY TAKEN!";
+              if(check_if_already_there(username,1)){
+                serverReply = "ERROR USERNAME IS ALREADY TAKEN!" +"\n\n";
                 break;
               }
               SocketConnection senderSocket = new SocketConnection(username, connectionSocket, inFromClient, outToClient);
@@ -366,8 +366,8 @@ class TCPServer {
             receiver = "receive";
             username = word[2];
             if(checkUserName(username)){
-              if(!check_if_already_there(username,2)){
-                serverReply = "ERROR USERNAME IS ALREADY TAKEN!";
+              if(check_if_already_there(username,2)){
+                serverReply = "ERROR USERNAME IS ALREADY TAKEN!" + "\n\n";
                 break;
               }
               SocketConnection receiverSocket = new SocketConnection(username, connectionSocket, inFromClient, outToClient);
@@ -464,21 +464,21 @@ class TCPServer {
     if(numb==1){
       for(Map.Entry<String,SocketConnection> entry: sendSocketMap.entrySet()){
         if(entry.getValue().getUsername().equals(un))
-            return false; //breaking because its one to one map
+            return true; //breaking because its one to one map
       }
     }
     else{
       for(Map.Entry<String,SocketConnection> entry: recSocketMap.entrySet()){
         if(entry.getValue().getUsername().equals(un))
-            return false; //breaking because its one to one map
+            return true; //breaking because its one to one map
       }
     }
-    return true;
+    return false;
   }
 
   public static void main(String argv[]) throws Exception{  
       ServerSocket welcomeSocket = new ServerSocket(6789); 
-
+      int mode = Integer.parseInt(argv[0]);
       while(true) { 
         Socket connectionSocket = new Socket();
         connectionSocket = welcomeSocket.accept(); 
@@ -487,7 +487,7 @@ class TCPServer {
         BufferedReader inFromClient = new BufferedReader(new InputStreamReader(connectionSocket.getInputStream()));
         DataOutputStream outToClient = new DataOutputStream(connectionSocket.getOutputStream());
 
-        int mode = Integer.parseInt(argv[0]);
+        
         SocketThread_mode1 socketThread1;
         SocketThread_mode2 socketThread2;
         SocketThread_mode3 socketThread3;
@@ -749,7 +749,7 @@ class SocketThread_mode3 extends TCPServer implements Runnable {
 
       boolean is_error_possible = true;
       while(fwdMessage.length()!=0 && username.length()!=0 && is_error_possible){
-        //forwrad message to receiving client
+        //forward message to receiving client
         SocketConnection forwardSocket = recSocketMap.get(username);
         String sender = findSender(connectionSocket);
         String forwardMessage = createForwardMessage_withHash(sender,fwdMessage,contLen, hash);
