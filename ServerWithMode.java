@@ -143,7 +143,10 @@ class TCPServer {
         }
 
         else if(word[0].equals("SEND")){
-  
+          if(findSender(connectionSocket).equals("")){
+            serverReply = "ERROR 101 No user registered\n\n";
+            break;
+          }
           username = word[1];
           if(!recSocketMap.containsKey(username)){
             serverReply = "ERROR 102 Unable to send\n\n";
@@ -261,6 +264,10 @@ class TCPServer {
         }
 
         else if(word[0].equals("SEND")){
+          if(findSender(connectionSocket).equals("")){
+            serverReply = "ERROR 101 No user registered\n\n";
+            break;
+          }
           username = word[1];
           if(!recSocketMap.containsKey(username)){
             serverReply = "ERROR 102 Unable to send\n\n";
@@ -390,6 +397,10 @@ class TCPServer {
         }
 
         else if(word[0].equals("SEND")){
+          if(findSender(connectionSocket).equals("")){
+            serverReply = "ERROR 101 No user registered\n\n";
+            break;
+          }
           username = word[1];
           if(!recSocketMap.containsKey(username)){
             serverReply = "ERROR 102 Unable to send\n\n";
@@ -635,8 +646,9 @@ class SocketThread_mode2 extends TCPServer implements Runnable {
       pubKey = str[5];
       contLen = str[6];
       hash = str[7];
-      if(serverReply.length()!=0)
+      if(serverReply.length()!=0){
         this.outToClient1.writeBytes(serverReply);
+      }
 
       //check when server reply is an error message
       if(pubKey.length()!=0){
